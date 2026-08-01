@@ -112,15 +112,21 @@ repo by design: the file is private and is not committed. Run it on your own.
 
 ```
 $ python3 -m histminer.cli report ~/.bash_history
-commands     218 -> 51 distinct templates
+history      ~/.bash_history  (bash-plain)
+commands     218 -> 50 distinct templates
 sessions     1 via single-block (history has no timestamps, so no session boundary can be
              computed; set HISTTIMEFORMAT='%s ' in bash or EXTENDED_HISTORY in zsh to fix)
-redacted     5 of 218 commands touched by redaction (ID:uuid x3, SECRET:env x2)
+NOTE         min-support lowered from 2 to 1: the history yields only 1 session(s), so a
+             higher session-support threshold can never be met
+redacted     5 of 218 commands touched by redaction
+             ID:uuid x3, SECRET:env x2
 
 most frequent single commands (shown to be ignored, automating them saves nothing):
      72  cd <PATH>
      57  claude
      16  ls
+      6  ollama launch claude --model <ARG>
+      5  codex
 
 top 1 workflows by estimated time saved
 
@@ -137,33 +143,36 @@ top 1 workflows by estimated time saved
 diagnostics
   order matters: shuffling each session 20 times gives a best pattern of 32 occurrences
   (median 10); everything reported above had to beat that, so p <= 0.048 for each
+  threshold sensitivity: not applicable (no timestamps to sweep)
 ```
 
-218 commands, and exactly one workflow reported. That is the point. 49 of those 218 commands
-are a `cd` immediately followed by `claude`, and nothing else in the file has structure that
-survives the null. The two most frequent commands, `cd` at 72 and `ls` at 16, are suggested
+218 commands, 50 distinct templates, one workflow reported. That is the point. 49 of those
+218 commands are a `cd` immediately followed by `claude`, and nothing else in the file has
+structure that survives the null. The two most frequent commands, `cd` at 72 and `ls` at 16, are suggested
 zero times on their own. Redaction fired on 5 commands: two `export` lines holding API keys
 and three session UUIDs passed to `claude --resume`.
 
 The gap-threshold argument needs timestamps, and a default bash history has none. Measured
-instead against this machine's timestamped record of 6,875 commands actually executed in
+instead against this machine's timestamped record of 7,019 commands actually executed in
 shells here (Claude Code transcripts, read through the same `jsonl` adapter):
 
 ```
 $ python3 -m histminer.cli sessions ~/.claude/projects
-commands      6875
-usable gaps   6667
+format        jsonl
+commands      7019
+usable gaps   6811
 model         timestamp-gap at 1122s via antimode
 note          bimodal log-gap density, peaks at 8.9s and 3548s, antimode at 1122s
-        0-1      s     779
-        1-5      s    1834
-        5-15     s    2004
-       15-60     s    1316
-       60-300    s     240
-      300-900    s      55     <- the valley
-      900-3600   s     160
-     3600-14400  s     156
+        0-1      s     794  ######
+        1-5      s    1891  ################
+        5-15     s    2067  ##################
+       15-60     s    1340  ###########
+       60-300    s     240  ##
+      300-900    s      55                     <- the valley
+      900-3600   s     160  #
+     3600-14400  s     156  #
     14400-86400  s     105
+    86400+       s       3
 ```
 
 Two clean modes about 2.6 decades apart with a real valley between them. The boundary is not
