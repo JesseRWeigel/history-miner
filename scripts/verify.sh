@@ -160,7 +160,6 @@ sys.path.insert(0, ".")
 from tests.support import expand_secrets
 text, planted = expand_secrets(seed=99)
 sys.stdout.write(text)
-open("/dev/stderr", "w").write("")
 EOF
 if $PY tools/leakcheck.py --stdin < "$work/secrets.history" > /dev/null 2>&1; then
   bad "the checker did NOT flag a history full of credentials; it is blind"

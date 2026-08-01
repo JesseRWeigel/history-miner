@@ -231,6 +231,10 @@ already justified.
 bash scripts/verify.sh
 ```
 
+On success the last line is `ALL CHECKS PASSED` and the unit suite line reads
+`Ran 76 tests`. Check 11 asserts both of those strings against the live run and against this
+file, so a stale count or a suite that stopped passing cannot sit here unnoticed.
+
 Needs Chrome or Chromium for check 9, which renders `docs/index.html` at 390px and measures
 it. If none is found the check FAILS with the install command rather than skipping, because
 a skipped check reports the same success as one that ran. Point `HISTMINER_CHROME` at a
@@ -253,10 +257,30 @@ binary to override discovery.
 Verified 2026-08-01. Pasted output of `bash scripts/verify.sh`:
 
 ```
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             ok    the checker flags the raw fixture, so a clean result on our output means something
+1. module names do not shadow the standard library
+
+  ok    no module shadows a stdlib name
+
+2. unit suite
+  ok    Ran 76 tests passed
+
+3. the planted workflows are found, and classified correctly
+  ok    all 4 planted workflows found, alias and function distinguished
+
+4. NEGATIVE CONTROL: the same commands with the order destroyed yield nothing
+  ok    control fixture produced 0 suggestions
+  ok    the control holds exactly the same commands, so it is a shuffle and not an empty file
+
+5. THE FREQUENCY TRAP: the most common command is suggested zero times
+most frequent: 'ls' x22
+  ok    top-frequency command appears in no suggestion; ranking is by time saved
+
+6. SECRETS: an independent checker, including a Python NUL scan
+  ok    leakcheck selftest: 10 detections proven, including NUL
+  ok    the checker flags the raw fixture, so a clean result on our output means something
   ok    no credential-shaped string survives into the tool's own output
   ok    not one of the planted secret VALUES appears in the output (exact match, not pattern)
-  ok    scanned 21 file(s), 0 finding(s)
+  ok    scanned 26 file(s), 0 finding(s)
 
 7. no absolute home path in any tracked file
   ok    git ls-files carries no /home/<user> path
