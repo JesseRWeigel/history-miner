@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>histminer: what a shell history is hiding</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #fbfaf8; --fg: #16150f; --muted: #5d5a4e; --line: #ded9c8;
+  --card: #ffffff; --accent: #7a4a00; --code: #f2efe4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12120f; --fg: #ece7d8; --muted: #9c968a; --line: #2e2c25;
+    --card: #1a1a16; --accent: #e0a44a; --code: #201f1a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12120f; --fg: #ece7d8; --muted: #9c968a; --line: #2e2c25;
+  --card: #1a1a16; --accent: #e0a44a; --code: #201f1a;
+}
+:root[data-theme="light"] {
+  --bg: #fbfaf8; --fg: #16150f; --muted: #5d5a4e; --line: #ded9c8;
+  --card: #ffffff; --accent: #7a4a00; --code: #f2efe4;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 1.25rem 1rem 4rem;
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 46rem; margin: 0 auto; }
+h1 { font-size: 1.5rem; line-height: 1.2; margin: 0 0 .35rem; letter-spacing: -.02em; }
+h2 { font-size: 1.05rem; margin: 2rem 0 .6rem; color: var(--accent); }
+p, li { color: var(--fg); }
+.lede { color: var(--muted); margin: 0 0 1.5rem; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+code { background: var(--code); padding: .1em .3em; border-radius: 3px; font-size: .9em; }
+pre {
+  background: var(--code); border: 1px solid var(--line); border-radius: 6px;
+  padding: .7rem .8rem; overflow-x: auto; font-size: .82rem; margin: .5rem 0 0;
+}
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .6rem; }
+.stat {
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: .6rem .7rem; min-width: 0;
+}
+.stat b { display: block; font-size: 1.35rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat span { display: block; font-size: .74rem; color: var(--muted); margin-top: .15rem; }
+.wf {
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: .8rem; margin: .7rem 0; min-width: 0;
+}
+.wf header { display: flex; flex-wrap: wrap; gap: .4rem; align-items: baseline; }
+.wf h3 { margin: 0; font-size: 1rem; font-family: ui-monospace, monospace; }
+.tag {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .05em;
+  border: 1px solid var(--line); border-radius: 999px; padding: .05rem .45rem; color: var(--muted);
+}
+.seq { color: var(--muted); font-size: .8rem; margin: .45rem 0 0; overflow-wrap: anywhere; }
+.savings { font-size: .85rem; margin: .5rem 0 0; }
+table { border-collapse: collapse; width: 100%; font-size: .82rem; }
+.scroll { overflow-x: auto; }
+th, td { border-bottom: 1px solid var(--line); padding: .3rem .45rem; text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 600; }
+footer { margin-top: 2.5rem; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+<main>
+<h1>histminer</h1>
+<p class="lede">A shell history is a record of what you actually do. This is what mining one for recurring multi-command workflows produces, run over the committed synthetic fixture so every number on this page can be reproduced.</p>
+<div class="stats">
+<div class="stat"><b>329</b><span>commands read</span></div>
+<div class="stat"><b>23</b><span>distinct templates</span></div>
+<div class="stat"><b>30</b><span>sessions</span></div>
+<div class="stat"><b>282s</b><span>session boundary</span></div>
+<div class="stat"><b>3</b><span>workflows worth automating</span></div>
+<div class="stat"><b>22</b><span>runs of ls, suggested 0 times</span></div>
+</div>
+<h2>Why frequency is the wrong ranking</h2>
+<p>The most common command in any history is the one that costs nothing to run. Here it is <code>ls</code>, 22 times, and wrapping it saves nothing. Everything below is ranked by estimated time saved instead, under a model stated in full so it can be argued with:</p>
+<ul>
+<li>typing rate 5.0 chars/sec (~60 wpm at 5 chars per word)</li>
+<li>switch cost 0.80s per command boundary (recall, wait, decide; the weakest constant in the model)</li>
+<li>setup cost 90s to write and install one suggestion</li>
+</ul>
+<h2>Workflows found</h2>
+<div class="wf"><header>
+<h3>gcgp</h3>
+<span class="tag">function</span>
+<span class="tag">1 param</span>
+<span class="tag">seen 12x</span>
+<span class="tag">lift 30x</span>
+</header>
+<p class="seq">git checkout -b &lt;ARG&gt; ; git push -u &lt;ARG&gt; &lt;ARG&gt;</p>
+<pre>gcgp() {
+  git checkout -b &quot;$1&quot;
+  git push -u origin &quot;$1&quot;
+}</pre>
+<p class="savings">39 keystrokes and 8.7s per run, 2.3 min/week</p>
+</div>
+<div class="wf"><header>
+<h3>cdnidbdp</h3>
+<span class="tag">function</span>
+<span class="tag">2 param</span>
+<span class="tag">seen 8x</span>
+<span class="tag">lift 61277x</span>
+</header>
+<p class="seq">cd &lt;PATH&gt; ; npm install ; docker build -t &lt;ARG&gt; &lt;PATH&gt; ; docker push &lt;ARG&gt;</p>
+<pre>cdnidbdp() {
+  cd &quot;$1&quot;
+  npm install
+  docker build -t &quot;$2&quot; .
+  docker push &quot;$2&quot;
+}</pre>
+<p class="savings">46 keystrokes and 11.5s per run, 2.0 min/week</p>
+</div>
+<div class="wf"><header>
+<h3>nrbnrtnr</h3>
+<span class="tag">alias</span>
+<span class="tag">0 param</span>
+<span class="tag">seen 10x</span>
+<span class="tag">lift 1324x</span>
+</header>
+<p class="seq">npm run build ; npm run test ; npm run lint</p>
+<pre>alias nrbnrtnr=&#x27;npm run build &amp;&amp; npm run test &amp;&amp; npm run lint&#x27;</pre>
+<p class="savings">31 keystrokes and 7.8s per run, 1.7 min/week</p>
+</div>
+<h2>Is any of this real?</h2>
+<p>Two controls run on every report. Shuffling each session preserves how often every command was run and destroys only the order; a pattern that a shuffle can match as often as the real history is a coincidence of frequency and is dropped.</p>
+<p>Over 20 shuffles the best pattern reached <b>4</b> occurrences, against <b>12</b> observed.</p>
+<p>The second control is the session boundary itself. It is the density minimum between the two modes of the gap distribution (28s and 17783s), and the findings have to survive moving it:</p>
+<div class="scroll"><table>
+<tr><th>boundary</th><th>sessions</th><th>top-set overlap</th></tr>
+<tr><td>30s</td><td>143</td><td>0.22</td></tr>
+<tr><td>60s</td><td>33</td><td>0.50</td></tr>
+<tr><td>120s</td><td>30</td><td>1.00</td></tr>
+<tr><td>300s</td><td>30</td><td>1.00</td></tr>
+<tr><td>600s</td><td>30</td><td>1.00</td></tr>
+<tr><td>1800s</td><td>30</td><td>1.00</td></tr>
+<tr><td>3600s</td><td>30</td><td>1.00</td></tr>
+</table></div>
+<h2>Secrets</h2>
+<p>A history holds tokens, database URLs with passwords in them, ssh targets and internal hostnames. Redaction runs as the file is read, so no later stage ever holds an unredacted command, and the redactor is checked by a scanner that shares no code with it. On this fixture the redactor fired 0 times.</p>
+<footer>Generated by <code>scripts/build_docs.py</code> from <code>fixtures/planted.history</code>. MIT licensed.</footer>
+</main>
+</body>
+</html>

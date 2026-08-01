@@ -37,9 +37,9 @@ _SALT = os.urandom(16)
 
 def _tag(kind: str, secret: str) -> str:
     d = hashlib.sha256(_SALT + secret.encode("utf-8", "replace")).hexdigest()[:4]
-    # The separator is a hyphen and not a colon on purpose. `https://<SECRET:urlauth#ab12>@h`
-    # matches the standard credentials-in-URL pattern, so a colon here would make the
-    # REDACTED output trip every third party secret scanner it is ever piped into.
+    # The separator is a hyphen and not a colon on purpose. A placeholder containing a colon,
+    # sitting where a URL's userinfo goes, matches the standard credentials-in-URL shape, so
+    # the REDACTED output would trip every third party secret scanner it is ever piped into.
     return f"<{kind.replace(':', '-')}#{d}>"
 
 

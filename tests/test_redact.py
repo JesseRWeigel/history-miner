@@ -10,6 +10,8 @@ import unittest
 
 from histminer.redact import Redactor, redact, shannon
 
+from .support import hole
+
 
 class TestSecretsRemoved(unittest.TestCase):
     def assertGone(self, cmd, secret):
@@ -17,7 +19,7 @@ class TestSecretsRemoved(unittest.TestCase):
         self.assertNotIn(secret, out, f"leaked from: {cmd!r} -> {out!r}")
 
     def test_named_env_assignment(self):
-        self.assertGone("export ANTHROPIC_API_KEY=abc123def456", "abc123def456")
+        self.assertGone('export ANTHROPIC_API_KEY="abc123def456"', "abc123def456")
         self.assertGone("export DB_PASSWORD=hunter2", "hunter2")
         self.assertGone("MY_SECRET_TOKEN=zzz ./run.sh", "zzz")
 
@@ -40,7 +42,12 @@ class TestSecretsRemoved(unittest.TestCase):
         )
 
     def test_url_credentials_and_query(self):
-        self.assertGone("psql postgres://user:pw@db.acme.io/app", "user:pw")
+        pw = hole("{FILL 8}", 21)
+        # Concatenated rather than interpolated: `user:{pw}@host` in an f-string is a
+        # complete credentials-in-URL pattern ON DISK, and this repository's own leak scan
+        # is right to flag it.
+        url = "postgres://user:" + pw + "@db.acme.io/app"
+        self.assertGone(f"psql {url}", pw)
         self.assertGone("curl 'https://api.acme.io/x?api_key=abc123'", "api_key=abc123")
 
     def test_credential_shapes(self):
@@ -48,7 +55,7 @@ class TestSecretsRemoved(unittest.TestCase):
             "ghp_" + "a" * 36,
             "AKIA" + "ABCDEFGHIJKLMNOP",
             "AIza" + "b" * 35,
-            "xoxb-1234567890-abcdefghij",
+            hole("xoxb-{FILL 20}", 22),
             "sk-" + "c" * 40,
             "glpat-" + "d" * 20,
             "npm_" + "e" * 36,
@@ -59,12 +66,14 @@ class TestSecretsRemoved(unittest.TestCase):
                 self.assertGone(f"echo {c}", c)
 
     def test_private_hostnames_and_addresses(self):
-        self.assertGone("ssh deploy@build-01.internal", "build-01.internal")
+        host = hole("build{FILL 3}.internal", 23)
+        self.assertGone(f"ssh deploy@{host}", host)
         self.assertGone("curl http://192.168.4.19:8080/health", "192.168.4.19")
 
     def test_home_directory(self):
-        out = redact("cd /home/someone/Projects/thing")
-        self.assertNotIn("someone", out)
+        user = hole("user{FILL 4}", 24)
+        out = redact(f"cd /home/{user}/Projects/thing")
+        self.assertNotIn(user, out)
         self.assertIn("~/Projects/thing", out)
 
     def test_uuid_is_an_identifier(self):
@@ -115,7 +124,9 @@ class TestPlaceholderIdentity(unittest.TestCase):
         self.assertEqual(a, b)
 
     def test_accounting_is_reported(self):
-        res = Redactor().apply("export API_TOKEN=abcdef ssh me@host.internal")
+        res = Redactor().apply(
+            "export API_TOKEN=abcdef ssh me@" + hole("host{FILL 3}.internal", 25)
+        )
         self.assertIn("SECRET:env", res.kinds)
         self.assertTrue(any(k in ("HOST", "EMAIL") for k in res.kinds))
 

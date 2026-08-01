@@ -26,6 +26,23 @@ _POOLS = {
 }
 
 
+def hole(template: str, seed: int = 1) -> str:
+    """Expand one `{FILL n}` template. Used by the redaction tests for their own inputs.
+
+    A test that needs a credential-shaped string has the same problem the fixture does: a
+    complete pattern sitting in a committed file is a secret to every scanner that looks at
+    the repository, including GitHub's push protection, and it makes the project's own leak
+    check report findings it cannot distinguish from real ones.
+    """
+    rng = random.Random(seed)
+
+    def fill(m: re.Match[str]) -> str:
+        pool = _POOLS[m.group(1)]
+        return "".join(rng.choice(pool) for _ in range(int(m.group(2))))
+
+    return _HOLE.sub(fill, template)
+
+
 def expand_secrets(seed: int = 4242) -> tuple[str, list[str]]:
     """Return (history text, every secret value planted in it)."""
     rng = random.Random(seed)
