@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+# Never commit a real history. This tool reads them; the repo must never carry one.
+*.bash_history
+*.zsh_history
+real-*.history
+out/
