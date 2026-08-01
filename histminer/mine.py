@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import math
 import random
+import sys
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -144,6 +145,16 @@ def mine(
                     nxt.append(p)
             if candidates_seen > max_candidates:
                 break
+        if candidates_seen > max_candidates:
+            # Say so. A truncated search that returns quietly is indistinguishable from a
+            # search that finished and found nothing more, and the caller cannot recover
+            # the difference from the result.
+            print(
+                f"histminer: candidate limit {max_candidates} reached at length {_k}; "
+                f"longer patterns were not searched. Raise --min-occurrences or lower "
+                f"--max-len to search a smaller space.",
+                file=sys.stderr,
+            )
         if not nxt:
             break
         all_patterns.extend(nxt)

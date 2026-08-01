@@ -182,6 +182,21 @@ class TestNoSecretsInOutput(unittest.TestCase):
         self.assertNotIn("tests", imported)
 
 
+class TestHonestRates(unittest.TestCase):
+    def test_a_short_history_does_not_get_a_weekly_rate(self):
+        # Dividing 8 occurrences by a 7 minute span would report "1,600 times a week".
+        lines = []
+        t = 1767225600
+        for i in range(8):
+            lines += [f"#{t}", "git add .", f"#{t + 5}", "git commit -m x"]
+            t += 30
+        a = analyze(parse_text("\n".join(lines), fmt="bash-timestamp"),
+                    opts=MineOptions(permutation_rounds=5), do_sweep=False)
+        for s in a.suggestions:
+            self.assertIsNone(s.per_week, "a weekly rate was extrapolated from minutes")
+            self.assertIn("too short", s.rate_basis)
+
+
 class TestUntimestamped(unittest.TestCase):
     def test_a_plain_bash_history_reports_its_weaker_model(self):
         text = "\n".join(["cd a", "claude", "cd b", "claude", "cd c", "claude"] * 6)
@@ -190,6 +205,12 @@ class TestUntimestamped(unittest.TestCase):
         self.assertFalse(a.model.trustworthy)
         self.assertIn("no timestamps", json.loads(to_json(a))["session_model_detail"])
         self.assertIn("min-support lowered", a.degraded)
+
+    def test_a_gap_override_on_an_untimestamped_history_is_reported_not_swallowed(self):
+        text = "\n".join(["cd a", "claude"] * 10)
+        a = analyze(parse_text(text), opts=MineOptions(permutation_rounds=3),
+                    gap_override=600.0, do_sweep=False)
+        self.assertIn("--gap 600 ignored", a.degraded)
 
 
 if __name__ == "__main__":

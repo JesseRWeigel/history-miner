@@ -77,11 +77,20 @@ class Analysis:
         return (hits + 1) / (len(self.null_max) + 1)
 
 
+MIN_SPAN_DAYS = 1.0
+
+
 def _weeks(history: History) -> float | None:
+    """Weeks of history, or None when the span is too short to extrapolate from.
+
+    Dividing 8 occurrences by a 7 minute span produces "1,600 times a week", which is not a
+    cautious estimate but a fabricated one. Below a day of history there is no rate to
+    report, and the report falls back to total time saved over the recorded period.
+    """
     d = history.span_days
-    if d is None or d <= 0:
+    if d is None or d < MIN_SPAN_DAYS:
         return None
-    return max(d / 7.0, 1e-6)
+    return d / 7.0
 
 
 def analyze(
@@ -101,7 +110,13 @@ def analyze(
     gap = gap_override if gap_override is not None else (
         model.gap.seconds if model.gap else None
     )
+    override_ignored = ""
     if model.kind == "single-block":
+        if gap_override is not None:
+            override_ignored = (
+                f"--gap {gap_override:.0f} ignored: this history has no timestamps, so there "
+                f"is nothing to measure a gap against"
+            )
         gap = None
 
     raw_sessions = segment(history.events, gap)
@@ -112,9 +127,9 @@ def analyze(
     # support can never produce a result. Rather than return a silent empty list, the
     # threshold degrades to what the data can support and the report says it degraded.
     mine_kw = opts.as_mine_kwargs()
-    degraded = ""
+    degraded = override_ignored
     if mine_kw["min_support"] > len(raw_sessions):
-        degraded = (
+        degraded = (degraded + "; " if degraded else "") + (
             f"min-support lowered from {mine_kw['min_support']} to {len(raw_sessions)}: "
             f"the history yields only {len(raw_sessions)} session(s), so a higher "
             f"session-support threshold can never be met"
@@ -143,7 +158,11 @@ def analyze(
     rate_basis = (
         f"{weeks:.1f} weeks of history"
         if weeks
-        else "no timestamps, so per-week rate is not derivable"
+        else (
+            "no timestamps, so per-week rate is not derivable"
+            if not history.timestamped
+            else f"history spans under {MIN_SPAN_DAYS:.0f} day, too short for a weekly rate"
+        )
     )
 
     used: set[str] = set()

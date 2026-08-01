@@ -241,7 +241,7 @@ bash scripts/verify.sh
 ```
 
 On success the last line is `ALL CHECKS PASSED` and the unit suite line reads
-`Ran 76 tests`. Check 11 asserts both of those strings against the live run and against this
+`Ran 78 tests`. Check 11 asserts both of those strings against the live run and against this
 file, so a stale count or a suite that stopped passing cannot sit here unnoticed.
 
 Needs Chrome or Chromium for check 9, which renders `docs/index.html` at 390px and measures
@@ -271,7 +271,7 @@ Verified 2026-08-01. Pasted output of `bash scripts/verify.sh`:
   ok    no module shadows a stdlib name
 
 2. unit suite
-  ok    Ran 76 tests passed
+  ok    Ran 78 tests passed
 
 3. the planted workflows are found, and classified correctly
   ok    all 4 planted workflows found, alias and function distinguished
@@ -304,7 +304,7 @@ most frequent: 'ls' x22
   ok    two runs produce byte-identical JSON
 
 11. the README describes this project and carries this script's output
-  ok    README has a Status section with this script's success line and Ran 76 tests
+  ok    README has a Status section with this script's success line and Ran 78 tests
 
 ALL CHECKS PASSED (16 checks)
 ```
