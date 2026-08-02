@@ -1,5 +1,7 @@
 # histminer
 
+**[Open the live page](https://jesserweigel.github.io/history-miner/)**
+
 Mine a shell history for recurring **multi-command workflows** and propose an alias or a
 shell function for each one, ranked by the time it would save.
 
@@ -312,3 +314,5 @@ ALL CHECKS PASSED (16 checks)
 ## License
 
 MIT.
+
+Part of [722 things to build](https://github.com/JesseRWeigel/722-things-to-build).
