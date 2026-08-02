@@ -243,7 +243,7 @@ bash scripts/verify.sh
 ```
 
 On success the last line is `ALL CHECKS PASSED` and the unit suite line reads
-`Ran 78 tests`. Check 11 asserts both of those strings against the live run and against this
+`Ran 84 tests`. Check 11 asserts both of those strings against the live run and against this
 file, so a stale count or a suite that stopped passing cannot sit here unnoticed.
 
 Needs Chrome or Chromium for check 9, which renders `docs/index.html` at 390px and measures
@@ -273,7 +273,7 @@ Verified 2026-08-01. Pasted output of `bash scripts/verify.sh`:
   ok    no module shadows a stdlib name
 
 2. unit suite
-  ok    Ran 78 tests passed
+  ok    Ran 84 tests passed
 
 3. the planted workflows are found, and classified correctly
   ok    all 4 planted workflows found, alias and function distinguished
@@ -306,7 +306,7 @@ most frequent: 'ls' x22
   ok    two runs produce byte-identical JSON
 
 11. the README describes this project and carries this script's output
-  ok    README has a Status section with this script's success line and Ran 78 tests
+  ok    README has a Status section with this script's success line and Ran 84 tests
 
 ALL CHECKS PASSED (16 checks)
 ```
@@ -314,5 +314,38 @@ ALL CHECKS PASSED (16 checks)
 ## License
 
 MIT.
+
+## Two defects found after the fact, by adding a link to this README
+
+Both were in `tools/leakcheck.py`, the independent checker, and both were found by ordinary use
+rather than by a test.
+
+**The entropy heuristic flagged URL paths.** `/` is in the base64 alphabet, so a run like
+`com/JesseRWeigel/722-things-to-build` scans as one 36-character token and clears the entropy bar,
+purely because concatenating unrelated words flattens the character distribution. Adding an
+ordinary project link to this README made the whole verify fail. Shell history is full of git
+remotes and curl URLs, so this would have misfired constantly, and a checker that cries wolf is one
+whose output people stop reading.
+
+The exemption is about the segments, not the run: a run counts as a path only when every
+slash-separated piece is too short to be a token by itself. A base64 token containing a slash still
+has one long dense piece, so it is still caught, and so is a secret dropped into a path
+(`a/b/<token>`). Both cases are pinned by tests.
+
+**The home-path pattern was lowercase only.** It read `[a-z][a-z0-9._-]{1,31}`, which matches a
+lowercase account name and misses a capitalised one. A capitalised name under the macOS `Users`
+directory is the normal shape there, so the scanner had a hole exactly where the most common home
+path lives.
+
+That hole survived because the selftest canary expands to a random mixed-case name and was being
+caught by the *entropy* heuristic instead of by the home-path pattern. From outside, a pass is a
+pass. It only surfaced when the path exemption above removed the accidental second route and the
+canary stopped being detected at all. **A canary that passes for a different reason than the one
+intended is not testing what it claims to**, and nothing about a green selftest reveals that.
+
+Fixing the pattern then made the repo fail its own scan, because the new tests contained literal
+home paths and literal tokens as fixtures. That verdict is correct: to a scanner, a fixture and a
+leak are the same bytes. The fixtures are now assembled at runtime from pieces, which is how this
+repo already handles its secret fixtures.
 
 Part of [722 things to build](https://github.com/JesseRWeigel/722-things-to-build).

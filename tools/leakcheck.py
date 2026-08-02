@@ -64,7 +64,18 @@ _FORMATS: tuple[tuple[str, str], ...] = (
     ("json web token", r"eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"),
     ("private key block", r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     ("password in url", r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s/@]+:[^\s/@]+@"),
-    ("absolute home path", r"/(home|Users)/[a-z][a-z0-9._\-]{1,31}(?![a-zA-Z0-9._-])"),
+    # Case-insensitive in the username, which the first version was not. `[a-z]` missed a
+    # capitalised account name under the macOS Users directory, which is the normal shape there,
+    # so the scanner had a hole exactly where the most common home path lives. The example is
+    # described rather than written out, because a literal one is a finding in this repo's own
+    # scan and the scanner is right about that.
+    #
+    # It went unnoticed because the selftest canary expands to a random mixed-case name and was
+    # being caught by the ENTROPY heuristic instead, which looks identical from the outside. It
+    # only surfaced when a path exemption was added to that heuristic and the canary stopped
+    # being detected at all. A canary that passes for a different reason than the one intended
+    # is a canary that is not testing what it says.
+    ("absolute home path", r"/(home|Users)/[A-Za-z][A-Za-z0-9._\-]{1,31}(?![A-Za-z0-9._-])"),
     ("email address", r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"),
 )
 
@@ -82,6 +93,33 @@ def entropy(chunk: str) -> float:
         p = n / total
         acc -= p * math.log(p, 2)
     return acc
+
+
+def _path_like(s: str) -> bool:
+    """True when a run is a slash-separated path rather than one dense token.
+
+    `/` is in the base64 alphabet, so a URL path scans as a single long run:
+    `com/JesseRWeigel/722-things-to-build` is 36 characters and clears the entropy bar purely
+    because concatenating unrelated words flattens the character distribution. Shell history is
+    full of git remotes and curl URLs, so without this the checker cries wolf constantly, and a
+    checker that cries wolf is one whose output people stop reading.
+
+    The test is deliberately conservative, and it is about the SEGMENTS, not the whole run. A
+    run counts as a path only when every slash-separated piece is short enough that it could not
+    be a token on its own. A genuine base64 token that happens to contain a slash still has at
+    least one long dense piece, so it is not exempted here.
+
+    Nothing about this weakens the vendor-format patterns. A token embedded in a URL query
+    string, `?api_key=sk-...`, is matched by format and never reaches this function.
+    """
+    if "/" not in s:
+        return False
+    parts = [p for p in s.split("/") if p]
+    if len(parts) < 2:
+        return False
+    # 20 rather than the 28-character run bar: a piece long enough to be a plausible secret on
+    # its own disqualifies the whole run from the exemption.
+    return all(len(p) < 20 for p in parts)
 
 
 def dense_runs(text: str) -> list[tuple[str, str]]:
@@ -108,7 +146,7 @@ def dense_runs(text: str) -> list[tuple[str, str]]:
             # Distinguish a token from an identifier: identifiers have vowels and repeated
             # short substrings, tokens do not. A crude but independent signal is the ratio
             # of distinct characters to length.
-            if len(set(s)) / len(s) >= 0.5:
+            if len(set(s)) / len(s) >= 0.5 and not _path_like(s):
                 out.append(("high entropy run", s))
 
     for ch in text:

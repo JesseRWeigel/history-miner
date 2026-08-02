@@ -215,3 +215,86 @@ class TestUntimestamped(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLeakCheckPathExemption(unittest.TestCase):
+    """A URL path must not read as a secret, and exempting it must not blind the checker.
+
+    `/` is in the base64 alphabet, so `com/JesseRWeigel/722-things-to-build` scans as one
+    36-character run and cleared the entropy bar purely because concatenating unrelated words
+    flattens the character distribution. It was found by adding an ordinary link to the README,
+    which made verify fail. Shell history is full of git remotes and curl URLs, so a checker that
+    flags every one of them is a checker whose output people stop reading.
+
+    The exemption is about the SEGMENTS: a run is a path only when every slash-separated piece is
+    too short to be a token by itself. Each case below has its opposite, because an exemption
+    that quietly swallowed real tokens would be far worse than the false positive it fixed.
+    """
+
+    def setUp(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "leakcheck_mod", str(ROOT / "tools" / "leakcheck.py"))
+        self.lc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.lc)
+
+    def flagged(self, text):
+        return bool(self.lc.dense_runs(text))
+
+    def test_url_paths_are_not_flagged(self):
+        self.assertFalse(self.flagged("https://github.com/JesseRWeigel/722-things-to-build"))
+        self.assertFalse(self.flagged("https://example.com/a/b/c/some-project-name/docs/index"))
+
+    def test_real_tokens_are_still_flagged(self):
+        # The control for the test above. If the exemption were too broad these would pass too,
+        # and the checker would be decorative.
+        self.assertTrue(self.flagged("dGhpcyBpcyBhIHZlcnkg" + "bG9uZyBzZWNy" + "ZXQgdG9rZW4gaW5kZWVk"))
+        self.assertTrue(self.flagged("d41d8cd98f00b204" + "e9800998ecf8427ed41d8cd9"))
+
+    def test_a_token_containing_a_slash_is_still_flagged(self):
+        # base64 output legitimately contains `/`, so the exemption cannot key on the mere
+        # presence of one. This token has a slash and must still be caught.
+        self.assertTrue(
+            self.flagged("aGVsbG93b3JsZHRo" + "aXNpc2Fsb25n/c2Vj" + "cmV0dG9rZW52YWx1ZWhlcmU"))
+
+    def test_a_path_with_one_long_segment_is_still_flagged(self):
+        # The precise boundary: a secret dropped into a path is still a secret.
+        #
+        # Assembled at runtime. Written out as a literal it is a finding in this repo's own scan,
+        # which is the correct verdict: the whole point of the case is that it looks like a token.
+        token = "dGhpc2lzYXZlcnls" + "b25nc2VjcmV0dG9rZW4"
+        self.assertTrue(self.flagged("a/b/" + token))
+
+    def test_the_exemption_predicate_itself_discriminates(self):
+        self.assertTrue(self.lc._path_like("com/JesseRWeigel/722-things-to-build"))
+        self.assertFalse(self.lc._path_like("dGhpcyBpcyBhIHZlcnkg" + "bG9uZyBzZWNyZXQ"))
+        self.assertFalse(
+            self.lc._path_like("a/b/" + "dGhpc2lzYXZlcnls" + "b25nc2VjcmV0dG9rZW4"))
+
+    def test_home_paths_are_detected_regardless_of_username_case(self):
+        """A capitalised account name under macOS Users was not being detected.
+
+        The pattern read `[a-z][a-z0-9._-]{1,31}`, so it matched a lowercase account name and
+        missed a capitalised one. The selftest canary expands to a random mixed-case name and
+        appeared to pass, but it was being caught by the entropy heuristic rather than by the
+        home-path pattern. A canary that passes for a different reason than the one intended is
+        not testing what it claims to.
+        """
+        def formats(s):
+            return [n for n, rx in self.lc._COMPILED if rx.search(s)]
+
+        # Assembled at runtime rather than written out. A literal home path in this file is a
+        # finding in this repo's own scan, and the scanner is right about that: a test fixture
+        # and a real leak look identical to a grep. The repo builds its secret fixtures the same
+        # way, for the same reason.
+        sep = "/"
+        home = sep + "home" + sep
+        users = sep + "Users" + sep
+        self.assertIn("absolute home path", formats(home + "jesse" + sep + "Projects"))
+        self.assertIn("absolute home path", formats(users + "JesseWeigel" + sep + "Documents"))
+        self.assertIn("absolute home path", formats(home + "pLIix6ME" + sep + "Projects"))
+        # The control: the pattern must not fire on every path containing the word "home", or it
+        # would report a finding on any machine with Homebrew installed.
+        self.assertNotIn("absolute home path",
+                         formats(sep + "opt" + sep + "homebrew" + sep + "bin"))
+        self.assertNotIn("absolute home path", formats("." + home + "x"))
