@@ -2,6 +2,10 @@
 
 **[Open the live page](https://jesserweigel.github.io/history-miner/)**
 
+> Measurements described here were taken on one development machine: an RTX 5090 with
+> 32 GB of VRAM, 12 cores, 48 GB of RAM, running Linux under WSL2. Numbers from your own
+> hardware will differ.
+
 Mine a shell history for recurring **multi-command workflows** and propose an alias or a
 shell function for each one, ranked by the time it would save.
 
@@ -109,7 +113,7 @@ environment assignment, which is where they occur in practice.
 
 ## Measured on a real history
 
-Run against this machine's own `~/.bash_history` on 2026-08-01. Not reproducible from this
+Run against the development machine's own `~/.bash_history` on 2026-08-01. Not reproducible from this
 repo by design: the file is private and is not committed. Run it on your own.
 
 ```
@@ -155,7 +159,7 @@ zero times on their own. Redaction fired on 5 commands: two `export` lines holdi
 and three session UUIDs passed to `claude --resume`.
 
 The gap-threshold argument needs timestamps, and a default bash history has none. Measured
-instead against this machine's timestamped record of 7,019 commands actually executed in
+instead against the development machine's timestamped record of 7,019 commands actually executed in
 shells here (Claude Code transcripts, read through the same `jsonl` adapter):
 
 ```
